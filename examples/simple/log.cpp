@@ -1,3 +1,4 @@
+
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
@@ -105,7 +106,6 @@ static const char *message_fault_to_string(UniversalMessage_MessageFault_E fault
   }
 }
 
-// Function to log UniversalMessage_MessageStatus
 static void log_message_status(const UniversalMessage_MessageStatus *status)
 {
   printf("  MessageStatus:\n");
@@ -113,7 +113,6 @@ static void log_message_status(const UniversalMessage_MessageStatus *status)
   printf("    signed_message_fault: %s\n", message_fault_to_string(status->signed_message_fault));
 }
 
-// Function to convert UniversalMessage_Domain enum to string
 static const char *domain_to_string(UniversalMessage_Domain domain)
 {
   switch (domain)
@@ -132,23 +131,24 @@ static const char *domain_to_string(UniversalMessage_Domain domain)
 static void log_destination(const char *direction,
                             const UniversalMessage_Destination *dest)
 {
+  char hex_buf[65];
+
   printf("Destination: %s\n", direction);
   printf("  which_sub_destination: %d\n", dest->which_sub_destination);
+
   switch (dest->which_sub_destination)
   {
   case UniversalMessage_Destination_domain_tag:
     printf("  domain: %s\n", domain_to_string(dest->sub_destination.domain));
     break;
+
   case UniversalMessage_Destination_routing_address_tag:
-    // dest->sub_destination.routing_address
-    // print routing_address as hex
-    printf("  routing_address: ");
-    for (int i = 0; i < dest->sub_destination.routing_address.size; i++)
-    {
-      printf("%02X", dest->sub_destination.routing_address.bytes[i]);
-    }
-    printf("\n");
+    printf("  routing_address: %s\n",
+           format_hex_to(hex_buf,
+                         dest->sub_destination.routing_address.bytes,
+                         dest->sub_destination.routing_address.size));
     break;
+
   default:
     printf("  unknown sub_destination\n");
   }
@@ -163,61 +163,54 @@ static void log_session_info_request(const UniversalMessage_SessionInfoRequest *
 
 static void log_session_info(const Signatures_SessionInfo *req)
 {
-  printf("  SessionInfo:\n");
-  printf("    counter: %" PRIu32, req->counter);
-  printf("\n");
-  printf("    publicKey: \n");
-  for (int i = 0; i < req->publicKey.size; i++)
-  {
-    printf("%02X", req->publicKey.bytes[i]);
-  }
-  printf("\n");
+  char hex_buf[65];
 
-  printf("    epoch: ");
-  for (int i = 0; i < sizeof(req->epoch); i++)
-  {
-    printf("%02X", req->epoch[i]);
-  }
-  printf("\n");
-  // convert uint32_t to int32_t
-  printf("    clock_time: %" PRIu32, req->clock_time);
-  printf("\n");
-  // int32_t *clock_time_converted = (int32_t *)&req->clock_time;
-  // printf("    clock_time converted: %" PRIu32, *clock_time_converted);
-  // printf("\n");
+  printf("  SessionInfo:\n");
+  printf("    counter: %" PRIu32 "\n", req->counter);
+
+  printf("    publicKey: %s\n",
+         format_hex_to(hex_buf, req->publicKey.bytes, req->publicKey.size));
+
+  printf("    epoch: %s\n",
+         format_hex_to(hex_buf, req->epoch, sizeof(req->epoch)));
+
+  printf("    clock_time: %" PRIu32 "\n", req->clock_time);
   printf("    status: %d\n", req->status);
 }
 
 static void log_aes_gcm_personalized_signature_data(const Signatures_AES_GCM_Personalized_Signature_Data *data)
 {
   printf("    AES_GCM_Personalized_Signature_Data:");
-  // printf("      epoch: %s\n", data->epoch);
-  // printf("      nonce: %s\n", data->nonce);
   printf("      counter: %" PRIu32, data->counter);
   printf("      expires_at: %" PRIu32, data->expires_at);
-  // printf("      tag: %s\n", data->tag);
 }
 
 static void log_signature_data(const Signatures_SignatureData *sig)
 {
   printf("  SignatureData:");
   printf("    has_signer_identity: %s\n", sig->has_signer_identity ? "true" : "false");
+
   if (sig->has_signer_identity)
   {
     printf("    signer_identity: (implement logging for Signatures_KeyIdentity)");
   }
+
   printf("    which_sig_type: %d\n", sig->which_sig_type);
+
   switch (sig->which_sig_type)
   {
   case Signatures_SignatureData_AES_GCM_Personalized_data_tag:
     log_aes_gcm_personalized_signature_data(&sig->sig_type.AES_GCM_Personalized_data);
     break;
+
   case Signatures_SignatureData_session_info_tag_tag:
     printf("    session_info_tag: (implement logging for Signatures_HMAC_Signature_Data)");
     break;
+
   case Signatures_SignatureData_HMAC_Personalized_data_tag:
     printf("    HMAC_Personalized_data: (implement logging for Signatures_HMAC_Personalized_Signature_Data)");
     break;
+
   default:
     printf("    unknown sig_type");
   }
@@ -227,71 +220,66 @@ static void log_information_request(const VCSEC_InformationRequest *msg)
 {
   printf("VCSEC_InformationRequest:");
   printf("  which_request: %d\n", msg->which_key);
-
   printf("  informationRequestType: %s\n", information_request_type_to_string(msg->informationRequestType));
   printf("  publicKeySHA1: %s\n", msg->key.keyId.publicKeySHA1.bytes);
   printf("  publicKey");
-  // ESP_LOG_BUFFER_HEX_LEVEL(msg->key.publicKey.bytes, msg->key.publicKey.size, ESP_LOG_DEBUG);
   printf("  publicKeySHA1: %" PRIu32, msg->key.slot);
 }
 
 static void log_routable_message(const UniversalMessage_RoutableMessage *msg)
 {
+  char hex_buf[65];
+
   printf("UniversalMessage_RoutableMessage:\n");
   printf("  has_to_destination: %s\n", msg->has_to_destination ? "true" : "false");
-  // if (msg->has_to_destination)
-  // {
+
   log_destination("to_destination", &msg->to_destination);
-  // }
 
   printf("  has_from_destination: %s\n", msg->has_from_destination ? "true" : "false");
+
   if (msg->has_from_destination)
   {
     log_destination("from_destination", &msg->from_destination);
   }
 
   printf("  which_payload: %d\n", msg->which_payload);
+
   switch (msg->which_payload)
   {
   case UniversalMessage_RoutableMessage_protobuf_message_as_bytes_tag:
   case UniversalMessage_RoutableMessage_session_info_tag:
     printf("  payload: protobuf_message_as_bytes\n");
-    // print bytes as hex
-    // printf("    payload: %s\n", msg->payload.protobuf_message_as_bytes.bytes);
-    printf("    payload: ");
-    for (int i = 0; i < msg->payload.protobuf_message_as_bytes.size; i++)
-    {
-      printf("%02X", msg->payload.protobuf_message_as_bytes.bytes[i]);
-    }
-    printf("\n");
+    printf("    payload: %s\n",
+           format_hex_to(hex_buf,
+                         msg->payload.protobuf_message_as_bytes.bytes,
+                         msg->payload.protobuf_message_as_bytes.size));
     break;
+
   case UniversalMessage_RoutableMessage_session_info_request_tag:
     printf("  payload: session_info_request\n");
     log_session_info_request(&msg->payload.session_info_request);
     break;
+
   default:
     printf("  payload: unknown\n");
   }
 
   printf("  has_signedMessageStatus: %s\n", msg->has_signedMessageStatus ? "true" : "false");
+
   if (msg->has_signedMessageStatus)
   {
     log_message_status(&msg->signedMessageStatus);
   }
 
   printf("  which_sub_sigData: %d\n", msg->which_sub_sigData);
+
   if (msg->which_sub_sigData == UniversalMessage_RoutableMessage_signature_data_tag)
   {
     log_signature_data(&msg->sub_sigData.signature_data);
   }
 
-  // print uuid
-  printf("  uuid: ");
-  for (int i = 0; i < msg->uuid.size; i++)
-  {
-    printf("%02X", msg->uuid.bytes[i]);
-  }
-  printf("\n");
-  printf("  flags: %" PRIu32, msg->flags);
-  printf("\n");
+  printf("  uuid: %s\n",
+         format_hex_to(hex_buf, msg->uuid.bytes, msg->uuid.size));
+
+  printf("  flags: %" PRIu32 "\n", msg->flags);
 }
